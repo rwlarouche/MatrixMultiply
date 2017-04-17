@@ -1,0 +1,93 @@
+MatrixMultiply implementation using MapReduce.
+
+Project Description:
+
+Project uses three separate .java programs:
+
+1. MatrixMultiply.java:
+  Takes input as two separate .txt files (M and N), each containing a single matrix. This then runs the Map.java and Reduce.java classes and outputs the result.
+  
+  Map function will produce key,value pairs from the input data. Reduce function uses the output of the Map function and performs the calculations and produces key,value pairs. All outputs are written to HDFS.
+
+  The value in row i and column k of product matrix P will be:
+  P_{(i,k)} = \sum\limits_{j=1} {m_{ij} * n_{jk}}.
+
+       Example: M, 2×3 matrix, and N, 3×2 matrix as follows:
+        |1  2  3|     |a  b|
+        |4  5  6|     |c  d| 
+                      |e  f|
+
+       The product P of MN will be as follows:
+       |1a+2c+3e  1b+2d+3f|
+       |4a+5c+6e  4b+5d+6f|
+
+2. Map.java:
+  For matrix M, map task (Algorithm 1) will produce key,value pairs as follows:
+  (i,k),(M,j,m_{ij}) 
+  
+  m_{11} = 1 
+  (1,1),(M,1,1) k = 1 
+  (1,2),(M,1,1) k = 2 
+  
+  m_{12} = 2
+  (1,1),(M,2,2) k = 1
+  (1,2),(M,2,2) k = 2
+  ......... 
+  
+  m_{23} = 6
+  (2,1),(M,3,6) k = 1
+  (2,2),(M,3,6) k = 2
+
+   For matrix N, map task (Algorithm 2) will produce key,value pairs as follows:
+  (i,k),(N,j,n_{jk})
+
+  n_{11} = a 
+  (1,1),(N,1,a) i = 1
+  (2,1),(N,1,a) i = 2
+
+  n_{21} = c
+  (1,1),(N,2,c) i = 1
+  (2,1),(N,2,c) i = 2
+
+  n_{31} = e 
+  (1,1),(N,3,e) i = 1
+  (2,1),(N,3,e) i = 2
+  .......  
+
+  n_{32} = f
+  (1,2),(N,3,f) i = 1 
+  (2,2),(N,3,f) i = 2
+
+  After combine operation the map task will return key,value pairs as follows:
+
+  ( (i,k), [ (M, j, m_{ij} ), (M, j, m_{ij} ),..., (N, j, n_{jk}), (N, j, n_{jk}), .... ] )
+  (1,1), [(M,1,1),(M,2,2),(M,3,3),(N,1,a,(N,2,c),(N,3,e)]
+  (1,2), [(M,1,1),(M,2,2),(M,3,3),(N,1,b,(N,2,d),(N,3,f)]
+  (2,1), [(M,1,4),(M,2,5),(M,3,6),(N,1,a,(N,2,c),(N,3,e)] 
+  (2,2), [(M,1,4),(M,2,5),(M,3,6),(N,1,b,(N,2,d),(N,3,f)]
+
+  Note that the entries for the same key are grouped in the same list, which is performed by the framework. This
+  output will be stored in HDFS and feed the reduce task as input.
+  
+3. Reduce.java:
+  Reduce task takes the $key,value$ pairs as the input and process one key at a time. For each key it divides the values in two separate lists for M and N. For key (1,1), the value is the list of [(M,1,1),(M,2,2),(M,3,3),(N,1,a,(N,2,c),(N,3,e)].
+  
+  Reduce task sorts values begin with M in one list and values begin with N in another list as follows:
+  list_M = [(M,1,1),(M,2,2),(M,3,3)]
+  list_N = [(N,1,a),(N,2,c),(N,3,e)],
+
+  then sums up the multiplication of m_{ij} and n_{jk} for each j as follows:
+  P(1,1) = 1b+2c+3e
+
+  The same computation applied to all input entries of reduce task. P_{(i,k)} = \sum\limits_{j=1} {m_{ij} * n_{jk}} for all i and k is then calculated as follows:
+  P(1,1) = 1a+2c+3e 
+  P(1,2) = 1b+2d+3f
+  P(2,1) = 4a+5c+6e
+  P(2,2) = 4b+5d+6f
+
+  The product matrix P of MN is then generated as:
+  |1a+2c+3e  1b+2d+3f|
+  |4a+5c+6e  4b+5d+6f|
+
+For the tutorial this was created using, see:
+https://lendap.wordpress.com/2015/02/16/matrix-multiplication-with-mapreduce/
